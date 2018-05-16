@@ -1,3 +1,3 @@
 # session
 
-Package session is a handler for the core.
+core框架session中间件
