@@ -1,2 +1,3 @@
 # session
-core session middleware
+
+Package session is a handler for the core.
