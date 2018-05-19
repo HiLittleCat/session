@@ -13,15 +13,15 @@ var provider = &RedisProvider{}
 
 var cookieValueKey = "_id"
 
-// redisStore session store
-type redisStore struct {
+// RedisStore session store
+type RedisStore struct {
 	SID    string
 	Values map[string]string
 	Cookie http.Cookie
 }
 
 // Set value
-func (rs *redisStore) Set(key, value string) error {
+func (rs *RedisStore) Set(key, value string) error {
 	rs.Values[key] = value
 	if key == cookieValueKey {
 		rs.Cookie.Value = value
@@ -31,7 +31,7 @@ func (rs *redisStore) Set(key, value string) error {
 }
 
 // Get value
-func (rs *redisStore) Get(key string) string {
+func (rs *RedisStore) Get(key string) string {
 	if v, ok := rs.Values[key]; ok {
 		return v
 	}
@@ -39,7 +39,7 @@ func (rs *redisStore) Get(key string) string {
 }
 
 // Delete value in redis session
-func (rs *redisStore) Delete(key string) error {
+func (rs *RedisStore) Delete(key string) error {
 	delete(rs.Values, key)
 	if key == cookieValueKey {
 		rs.Cookie.Value = ""
@@ -50,7 +50,7 @@ func (rs *redisStore) Delete(key string) error {
 }
 
 // SessionID get redis session id
-func (rs *redisStore) SessionID() string {
+func (rs *RedisStore) SessionID() string {
 	return rs.SID
 }
 
@@ -62,15 +62,15 @@ type RedisProvider struct {
 }
 
 // Set value in redis session
-func (rp *RedisProvider) Set(key string, values map[string]string) (*redisStore, error) {
-	rs := &redisStore{SID: key, Values: values, Cookie: provider.Cookie}
+func (rp *RedisProvider) Set(key string, values map[string]string) (*RedisStore, error) {
+	rs := &RedisStore{SID: key, Values: values, Cookie: provider.Cookie}
 	rs.Cookie.Value = values[cookieValueKey]
 	err := provider.refresh(rs)
 	return rs, err
 }
 
 // refresh refresh store to redis
-func (rp *RedisProvider) refresh(rs *redisStore) error {
+func (rp *RedisProvider) refresh(rs *RedisStore) error {
 	var err error
 	rp.Pool.Exec(func(c *redis.Client) {
 		err = c.HMSet(rs.SID, rs.Values).Err()
@@ -83,8 +83,8 @@ func (rp *RedisProvider) refresh(rs *redisStore) error {
 }
 
 // Get read redis session by sid
-func (rp *RedisProvider) Get(sid string) (*redisStore, error) {
-	var rs = &redisStore{}
+func (rp *RedisProvider) Get(sid string) (*RedisStore, error) {
+	var rs = &RedisStore{}
 	var val map[string]string
 	var err error
 	rp.Pool.Exec(func(c *redis.Client) {

@@ -39,9 +39,9 @@ func Set(ctx *core.Context, key string, values map[string]string) error {
 // Delete delete session
 func Delete(ctx *core.Context, store IStore) error {
 	ctx.Data["session"] = nil
-	st, ok := store.(*redisStore)
+	st, ok := store.(*RedisStore)
 	if ok == false {
-		return errors.New("Type IStore cannot convert to *redisStore")
+		return errors.New("Type IStore cannot convert to *RedisStore")
 	}
 	sid := store.SessionID()
 	provider.Destroy(sid)
