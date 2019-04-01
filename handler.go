@@ -1,26 +1,33 @@
 package session
 
 import (
-	"errors"
 	"net/http"
+	"time"
 
+	"github.com/HiLittleCat/conn"
 	"github.com/HiLittleCat/core"
 )
 
 // Use 初始化并加载session中间件
-func Use(rp *RedisProvider) {
-	provider = rp
-	provider.Cookie.MaxAge = int(rp.Expire.Seconds())
+func Use(expire time.Duration, pool *conn.RedisPool, cookie http.Cookie) {
+	sessExpire = expire
+	redisPool = pool
+	httpCookie = cookie
+	httpCookie.MaxAge = int(sessExpire.Seconds())
 	core.Use(session)
 }
 
 // Get get session
 func Get(ctx *core.Context) IStore {
-	store, ok := ctx.Data["session"].(IStore)
+	store := ctx.Data["session"]
+	if store == nil {
+		return nil
+	}
+	st, ok := store.(IStore)
 	if ok == false {
 		return nil
 	}
-	return store
+	return st
 }
 
 // Set set session
@@ -29,24 +36,29 @@ func Set(ctx *core.Context, key string, values map[string]string) error {
 	if err != nil {
 		return err
 	}
-	store.Cookie = provider.Cookie
-	store.Cookie.Value = store.Values[cookieValueKey]
+	cookie := httpCookie
+	cookie.Value = store.Values[cookieValueKey]
 	ctx.Data["session"] = store
-	http.SetCookie(ctx.ResponseWriter, &store.Cookie)
+	http.SetCookie(ctx.ResponseWriter, &cookie)
+	return nil
+}
+
+// FreshExpire set session
+func FreshExpire(ctx *core.Context, key string) error {
+	err := provider.UpExpire(key)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 // Delete delete session
-func Delete(ctx *core.Context, store IStore) error {
+func Delete(ctx *core.Context, sid string) error {
 	ctx.Data["session"] = nil
-	st, ok := store.(*RedisStore)
-	if ok == false {
-		return errors.New("Type IStore cannot convert to *RedisStore")
-	}
-	sid := store.SessionID()
 	provider.Destroy(sid)
-	st.Cookie.MaxAge = 1
-	http.SetCookie(ctx.ResponseWriter, &st.Cookie)
+	cookie := httpCookie
+	cookie.MaxAge = 1
+	http.SetCookie(ctx.ResponseWriter, &cookie)
 	return nil
 }
 
@@ -73,10 +85,10 @@ func session(ctx *core.Context) {
 			ctx.Fail(err)
 			return
 		}
-		store.Cookie = provider.Cookie
-		store.Cookie.Value = cookie.Value
+		cookie := httpCookie
+		cookie.Value = store.Values[cookieValueKey]
 		ctx.Data["session"] = store
-		http.SetCookie(ctx.ResponseWriter, &store.Cookie)
+		http.SetCookie(ctx.ResponseWriter, &cookie)
 	}
 
 	ctx.Next()

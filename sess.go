@@ -10,8 +10,8 @@ type IProvider interface {
 
 // IStore session操作
 type IStore interface {
-	Set(key, value string) error //设置session
-	Get(key string) string       //读取session
-	Delete(key string) error     //删除session
-	SessionID() string           //生成sessionID
+	Set(key, value string) error //设置设置key值
+	Get(key string) string       //读取key对应的value
+	Delete(key string) error     //删除key
+	SessionID() string           //获取sid
 }

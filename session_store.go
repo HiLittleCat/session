@@ -8,30 +8,35 @@ import (
 	redis "gopkg.in/redis.v5"
 )
 
-// provider redis session provider
-var provider = &RedisProvider{}
+var (
+	// sessExpire session expire
+	sessExpire time.Duration
+	// redisPool redis pool
+	redisPool *conn.RedisPool
+	// httpCookie http cookie
+	httpCookie http.Cookie
 
-var cookieValueKey = "_id"
+	// provider redis session provider
+	provider *redisProvider
 
-// RedisStore session store
-type RedisStore struct {
+	cookieValueKey = "_id"
+)
+
+// redisStore session store
+type redisStore struct {
 	SID    string
 	Values map[string]string
-	Cookie http.Cookie
 }
 
 // Set value
-func (rs *RedisStore) Set(key, value string) error {
+func (rs *redisStore) Set(key, value string) error {
 	rs.Values[key] = value
-	if key == cookieValueKey {
-		rs.Cookie.Value = value
-	}
 	err := provider.refresh(rs)
 	return err
 }
 
 // Get value
-func (rs *RedisStore) Get(key string) string {
+func (rs *redisStore) Get(key string) string {
 	if v, ok := rs.Values[key]; ok {
 		return v
 	}
@@ -39,55 +44,47 @@ func (rs *RedisStore) Get(key string) string {
 }
 
 // Delete value in redis session
-func (rs *RedisStore) Delete(key string) error {
+func (rs *redisStore) Delete(key string) error {
 	delete(rs.Values, key)
-	if key == cookieValueKey {
-		rs.Cookie.Value = ""
-	}
-	rs.Cookie.MaxAge = 1
 	err := provider.refresh(rs)
 	return err
 }
 
 // SessionID get redis session id
-func (rs *RedisStore) SessionID() string {
+func (rs *redisStore) SessionID() string {
 	return rs.SID
 }
 
-// RedisProvider redis session RedisProvider
-type RedisProvider struct {
-	Expire time.Duration
-	Pool   *conn.RedisPool
-	Cookie http.Cookie
+// redisProvider redis session redisProvider
+type redisProvider struct {
 }
 
 // Set value in redis session
-func (rp *RedisProvider) Set(key string, values map[string]string) (*RedisStore, error) {
-	rs := &RedisStore{SID: key, Values: values, Cookie: provider.Cookie}
-	rs.Cookie.Value = values[cookieValueKey]
+func (rp *redisProvider) Set(key string, values map[string]string) (*redisStore, error) {
+	rs := &redisStore{SID: key, Values: values}
 	err := provider.refresh(rs)
 	return rs, err
 }
 
 // refresh refresh store to redis
-func (rp *RedisProvider) refresh(rs *RedisStore) error {
+func (rp *redisProvider) refresh(rs *redisStore) error {
 	var err error
-	rp.Pool.Exec(func(c *redis.Client) {
+	redisPool.Exec(func(c *redis.Client) {
 		err = c.HMSet(rs.SID, rs.Values).Err()
 		if err != nil {
 			return
 		}
-		err = c.Expire(rs.SID, rp.Expire).Err()
+		err = c.Expire(rs.SID, sessExpire).Err()
 	})
 	return nil
 }
 
 // Get read redis session by sid
-func (rp *RedisProvider) Get(sid string) (*RedisStore, error) {
-	var rs = &RedisStore{}
+func (rp *redisProvider) Get(sid string) (*redisStore, error) {
+	var rs = &redisStore{}
 	var val map[string]string
 	var err error
-	rp.Pool.Exec(func(c *redis.Client) {
+	redisPool.Exec(func(c *redis.Client) {
 		val, err = c.HGetAll(sid).Result()
 		rs.Values = val
 	})
@@ -95,19 +92,19 @@ func (rp *RedisProvider) Get(sid string) (*RedisStore, error) {
 }
 
 // Destroy delete redis session by id
-func (rp *RedisProvider) Destroy(sid string) error {
+func (rp *redisProvider) Destroy(sid string) error {
 	var err error
-	rp.Pool.Exec(func(c *redis.Client) {
+	redisPool.Exec(func(c *redis.Client) {
 		err = c.Del(sid).Err()
 	})
 	return err
 }
 
 // UpExpire refresh session expire
-func (rp *RedisProvider) UpExpire(sid string) error {
+func (rp *redisProvider) UpExpire(sid string) error {
 	var err error
-	rp.Pool.Exec(func(c *redis.Client) {
-		err = c.Expire(sid, rp.Expire).Err()
+	redisPool.Exec(func(c *redis.Client) {
+		err = c.Expire(sid, sessExpire).Err()
 	})
 	return err
 }
